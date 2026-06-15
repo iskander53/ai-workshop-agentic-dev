@@ -30,10 +30,10 @@ docs/
   <entity>/
     prd.md             # INPUT  — product requirements (humans own this)
     spec.md            # OUTPUT — technical spec (YOU own this)
-    tests/             # test plan / fixtures the tester elaborates
+    tests/             # executable Vitest *.test.ts (the tester writes these)
 ```
 
-Implementation code lives **outside docs**, under `src/<entity>/`. Executable tests are colocated there as `*.test.ts` (Vitest), one per spec test-case.
+Implementation code lives **outside docs**, under `src/<entity>/`. Executable Vitest tests live under `docs/<entity>/tests/` as `*.test.ts` (one per spec test-case) and import the implementation from `src/<entity>/` — Vitest `include` glob `docs/**/tests/**/*.test.ts`.
 
 ## spec.md format
 
@@ -58,8 +58,9 @@ Tree of every file to be created/changed, with a one-line purpose each:
 src/<entity>/
   index.ts          # public surface / barrel
   <thing>.ts        # <responsibility>
-  <thing>.test.ts   # Vitest tests for <thing>
   types.ts          # shared types/interfaces
+docs/<entity>/tests/
+  <thing>.test.ts   # Vitest tests (tester writes; import from ../../../src/<entity>/<thing>)
 ```
 
 ## 3. Types & data models
