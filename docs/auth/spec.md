@@ -8,22 +8,24 @@ updated: 2026-06-15
 # Auth — Technical Spec
 
 ## 1. Summary
-`auth` provides account **registration** and **login** as pure TypeScript logic, satisfying [docs/auth/prd.md](./prd.md). An `AuthService` validates and creates accounts in an injected `AccountStore`, hashing passwords with a salted, one-way KDF so the plaintext is never persisted; it authenticates by re-hashing the supplied password and comparing in constant time. Login failures return a single generic result for both unknown-login and wrong-password (no account enumeration). The default store is in-memory; persistence tech, transport (HTTP), and UI are out of scope (the design handoff under `docs/auth/design_handoff_auth_register_login/` is a UI reference only).
+`auth` provides account **registration** and **login** as pure TypeScript logic, satisfying [docs/auth/prd.md](./prd.md). An `AuthService` validates and creates accounts through an injected `AccountStore`, hashing passwords with a salted, one-way KDF so the plaintext is never persisted; it authenticates by re-hashing the supplied password and comparing in constant time. Login failures return a single generic result for both unknown-login and wrong-password (no account enumeration). Accounts are persisted in **SQLite** (`SqliteAccountStore`, the production default) behind the `AccountStore` port; an `InMemoryAccountStore` is retained for fast, deterministic unit tests. Transport (HTTP) and UI are out of scope (the design handoff under `docs/auth/design_handoff_auth_register_login/` is a UI reference only).
 
 ## 2. File & folder structure
 ```
 src/auth/
-  index.ts            # public barrel — exports AuthService, InMemoryAccountStore, types, messages
-  types.ts            # RegistrationInput, Credentials, Account, PublicAccount, results, AccountStore
-  messages.ts         # user-facing error/validation message constants
-  password.ts         # hashPassword / verifyPassword (salted scrypt via node:crypto)
-  validation.ts       # validateRegistration — field-level rules (no store access)
-  accountStore.ts     # InMemoryAccountStore implementing AccountStore
-  authService.ts      # AuthService.register / AuthService.login orchestration
-  password.test.ts    # Vitest — password hashing/verification (Test plan 9, 10)
-  validation.test.ts  # Vitest — field validation rules (Test plan 2, 3, 4)
-  register.test.ts    # Vitest — AuthService.register behavior (Test plan 1, 5, 6)
-  login.test.ts       # Vitest — AuthService.login behavior (Test plan 7, 8)
+  index.ts                  # public barrel — exports AuthService, createAuthService, stores, types, messages
+  types.ts                  # RegistrationInput, Credentials, Account, PublicAccount, results, AccountStore
+  messages.ts               # user-facing error/validation message constants
+  password.ts               # hashPassword / verifyPassword (salted scrypt via node:crypto)
+  validation.ts             # validateRegistration — field-level rules (no store access)
+  accountStore.ts           # InMemoryAccountStore implementing AccountStore (tests/demo)
+  sqliteAccountStore.ts     # SqliteAccountStore implementing AccountStore (node:sqlite, production default)
+  authService.ts            # AuthService.register / AuthService.login orchestration + createAuthService factory
+  password.test.ts          # Vitest — password hashing/verification (Test plan 9, 10)
+  validation.test.ts        # Vitest — field validation rules (Test plan 2, 3, 4)
+  register.test.ts          # Vitest — AuthService.register behavior (Test plan 1, 5, 6)
+  login.test.ts             # Vitest — AuthService.login behavior (Test plan 7, 8)
+  sqliteAccountStore.test.ts # Vitest — SQLite persistence/uniqueness + end-to-end (Test plan 11, 12, 13)
 ```
 
 ## 3. Types & data models
@@ -69,7 +71,8 @@ type LoginResult =
   | { ok: true; account: PublicAccount }
   | { ok: false; error: string };   // always the same generic message
 
-// Persistence port (default impl InMemoryAccountStore)
+// Persistence port — synchronous (both impls are sync: in-memory + node:sqlite DatabaseSync).
+// Production impl: SqliteAccountStore. Test/demo impl: InMemoryAccountStore.
 interface AccountStore {
   findByLogin(loginLower: string): Account | undefined;
   add(account: Account): void;
@@ -77,11 +80,27 @@ interface AccountStore {
 }
 ```
 
+### SQLite schema (`SqliteAccountStore`)
+One table; `login_lower` carries a `UNIQUE` constraint so duplicate logins are rejected at the DB level (defense-in-depth behind `AuthService`'s friendly pre-check). `StoredCredential` maps to the `salt`/`hash` columns.
+```sql
+CREATE TABLE IF NOT EXISTS accounts (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  surname     TEXT NOT NULL,
+  country     TEXT NOT NULL,
+  login       TEXT NOT NULL,           -- original casing
+  login_lower TEXT NOT NULL UNIQUE,    -- lookup + uniqueness key
+  salt        TEXT NOT NULL,
+  hash        TEXT NOT NULL
+);
+```
+
 ## 4. Classes & modules
 - **`password`** (`password.ts`) — pure functions to hash and verify a password with a per-account random salt; the only place credential material is computed.
 - **`validation`** (`validation.ts`) — `validateRegistration`; field-shape rules only (required/min-length). Knows nothing about existing accounts.
-- **`InMemoryAccountStore`** (`accountStore.ts`) — `AccountStore` backed by an array/Map; case-insensitive lookup by `loginLower`. Default store for tests and demos.
-- **`AuthService`** (`authService.ts`) — orchestrates register/login over an injected `AccountStore`: trims input, runs validation, enforces duplicate-login, hashes on register, verifies on login, and projects `Account → PublicAccount`.
+- **`InMemoryAccountStore`** (`accountStore.ts`) — `AccountStore` backed by an array/Map; case-insensitive lookup by `loginLower`. Store for unit tests and demos.
+- **`SqliteAccountStore`** (`sqliteAccountStore.ts`) — `AccountStore` backed by `node:sqlite` `DatabaseSync`; ensures the schema on construction, persists/reads the `accounts` table, and maps rows ↔ `Account`. Production default. The single place the SQLite driver is referenced (swap point).
+- **`AuthService`** (`authService.ts`) — orchestrates register/login over an injected `AccountStore`: trims input, runs validation, enforces duplicate-login, hashes on register, verifies on login, and projects `Account → PublicAccount`. Store-agnostic — unchanged by the SQLite decision.
 - **`messages`** (`messages.ts`) — exported message constants so tests assert against names, not string literals.
 
 ## 5. Methods / functions
@@ -99,8 +118,17 @@ interface AccountStore {
   - `add(account)` — appends; assumes uniqueness already enforced by caller.
   - `all()` — returns a read-only snapshot.
 
+`sqliteAccountStore.ts`
+- `SqliteAccountStore` implements `AccountStore`:
+  - `constructor(database: string | DatabaseSync = ':memory:')` — if a path string, opens `new DatabaseSync(path)`; ensures the schema via `exec(CREATE TABLE IF NOT EXISTS …)`. Accepts an existing `DatabaseSync` for sharing/testing.
+  - `findByLogin(loginLower)` — `SELECT … WHERE login_lower = ?`, maps the row to `Account` (or `undefined`).
+  - `add(account)` — `INSERT` the row (incl. `salt`/`hash`). The `UNIQUE(login_lower)` constraint throws `ERR_SQLITE_ERROR` on a duplicate (race safety); the normal friendly path is `AuthService`'s pre-check, so this throw is not expected in single-threaded flows.
+  - `all()` — `SELECT * FROM accounts`, mapped to `Account[]`.
+  - `close(): void` — closes the underlying database (beyond the `AccountStore` port; for app lifecycle/test cleanup).
+
 `authService.ts`
-- `constructor(store: AccountStore = new InMemoryAccountStore())` — store is injectable for tests/persistence swap.
+- `constructor(store: AccountStore = new InMemoryAccountStore())` — store is injectable; default stays in-memory so unit tests need no DB. Production is wired via `createAuthService`.
+- `createAuthService(dbPath: string = DEFAULT_DB_PATH): AuthService` *(factory, exported)* — `new AuthService(new SqliteAccountStore(dbPath))`. `DEFAULT_DB_PATH` is a module constant (e.g. `'auth.db'`); the app may pass its own path. This is the intended production entry point.
 - `register(input: RegistrationInput): RegisterResult` —
   1. `const errors = validateRegistration(input)`.
   2. If no field errors, compute `loginLower = input.login.trim().toLowerCase()`; if `store.findByLogin(loginLower)` exists, set `errors.login = messages.LOGIN_TAKEN`.
@@ -121,8 +149,11 @@ interface AccountStore {
 - `LOGIN_FAILED = "That login and password don't match."`
 
 ## 6. Dependencies
-- **Internal:** `authService` → `validation`, `password`, `accountStore`, `messages`, `types`. `index.ts` re-exports the public surface.
-- **External:** none. Uses Node's built-in `node:crypto` (`randomBytes`, `scryptSync`, `timingSafeEqual`, `randomUUID`) — keeps the project dependency-free. No bcrypt/argon2 package is added; `password.ts` is the single swap point if a different KDF is later mandated.
+- **Internal:** `authService` → `validation`, `password`, `accountStore` (default), `messages`, `types`; `createAuthService` → `sqliteAccountStore`. `index.ts` re-exports the public surface.
+- **External:** none. Uses Node built-ins only:
+  - `node:crypto` (`randomBytes`, `scryptSync`, `timingSafeEqual`, `randomUUID`) — KDF + ids. `password.ts` is the single swap point if a different KDF is later mandated.
+  - `node:sqlite` (`DatabaseSync`) — persistence (confirmed available, synchronous, enforces `UNIQUE` in Node v23.7.0). Emits an `ExperimentalWarning`. `sqliteAccountStore.ts` is the single swap point if `better-sqlite3` (or another driver) is later mandated.
+  - No npm packages are added; the project stays dependency-free.
 
 ## 7. Test plan (TDD)
 Each item becomes one or more `*.test.ts` cases the tester writes before implementation. PRD acceptance-criterion mapping in parentheses.
@@ -137,8 +168,16 @@ Each item becomes one or more `*.test.ts` cases the tester writes before impleme
 8. **login wrong password is generic** (PRD AC7) — registered `bob` with a wrong password returns `{ ok:false, error === LOGIN_FAILED }` and no account.
 9. **login unknown login is identical failure** (PRD AC8) — `login` for a non-existent login returns `{ ok:false, error === LOGIN_FAILED }` — byte-for-byte the same message as item 8 (no enumeration).
 10. **password unit round-trip** — `verifyPassword(pw, hashPassword(pw))` is `true`; `verifyPassword('wrong', cred)` is `false`; two `hashPassword(pw)` calls yield different `salt`/`hash` (random salt).
+11. **SQLite persistence across instances** — using a temp-file DB path, register an account via one `SqliteAccountStore`, construct a second store on the **same path**, and `findByLogin` returns the account (data survived the instance; `close()` between them). Maps all fields incl. `credential.salt`/`hash` faithfully.
+12. **SQLite enforces unique login at the DB level** — inserting two accounts whose `login_lower` collide (bypassing `AuthService`, calling `store.add` directly) throws an `ERR_SQLITE_ERROR`; the table holds exactly one row.
+13. **AuthService end-to-end over SQLite** — with `new AuthService(new SqliteAccountStore(':memory:'))`: register `bob`/`secret-pw` succeeds; `login('BOB','secret-pw')` succeeds and identifies the account; wrong password and unknown login both return the generic `LOGIN_FAILED`; a duplicate register returns `errors.login === LOGIN_TAKEN`. (Re-verifies AC1/AC3/AC6/AC7/AC8 against the real store.)
+
+> Impact on existing tests: items **1–10 are unaffected** — the `AccountStore` port is unchanged and they continue to run against `InMemoryAccountStore`. Items 11–13 are **new**, exercising the SQLite store directly.
 
 ## 8. Open questions / assumptions
+- **SQLite driver:** `node:sqlite` (`DatabaseSync`) per the user's direction — zero-dependency and synchronous, matching the existing `AccountStore` port. It is flagged **experimental** in Node 23 (emits `ExperimentalWarning`) and requires Node ≥ 22.5; the swap to `better-sqlite3` is isolated to `sqliteAccountStore.ts`. Flag if production must run on an older Node or requires a stable driver.
+- **Uniqueness is enforced in two layers:** `AuthService` pre-checks `findByLogin` for the friendly `LOGIN_TAKEN` field error; the `UNIQUE(login_lower)` column constraint is defense-in-depth against concurrent inserts. `add()` surfaces a constraint violation as a thrown error rather than a `FieldErrors` result (not expected on the normal path).
+- **DB path / lifecycle:** `DEFAULT_DB_PATH` (e.g. `'auth.db'`) is a placeholder; the application owns the real path/config and calling `close()`. Migrations beyond `CREATE TABLE IF NOT EXISTS` are out of scope.
 - **KDF choice:** scrypt via `node:crypto` (zero-dependency) instead of bcrypt/argon2; satisfies the PRD's "one-way salted hash, never plaintext". Swap is isolated to `password.ts`. Flag if a specific KDF/work factor is mandated.
 - **Empty-field login:** an empty login and/or password yields the same generic `LOGIN_FAILED` (no separate "enter your login" message). The handoff's "Enter your login and password." is a UI-only nicety; keeping one message preserves non-enumeration. Flag if the API must distinguish empty input.
 - **No session/token:** `login` returns only the identified `PublicAccount`, never a session/JWT (PRD out of scope).
@@ -148,3 +187,4 @@ Each item becomes one or more `*.test.ts` cases the tester writes before impleme
 
 ## 9. Changelog
 - 2026-06-15 (`bf293d3`): initial spec derived from `prd.md` @ bf293d3 — 8-section auth logic (register/login over an injected `AccountStore`, zero-dep scrypt hashing) and a 10-item TDD test plan covering all 8 PRD acceptance criteria.
+- 2026-06-15 (no PRD change; architecture directive "use node sqlite"): persistence set to **SQLite** via `node:sqlite` (`DatabaseSync`). Added `SqliteAccountStore` + `createAuthService` factory; added the `accounts` schema with `UNIQUE(login_lower)`; added Test-plan items 11–13. `AccountStore` port and items 1–10 unchanged; `InMemoryAccountStore` retained for unit tests. `prd_synced` unchanged (`bf293d3`).
