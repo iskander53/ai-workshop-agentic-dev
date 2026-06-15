@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { validateRegistration } from './validation'
-import * as messages from './messages'
-import type { Field, RegistrationInput } from './types'
+import { validateRegistration } from '../../../src/auth/validation'
+import * as messages from '../../../src/auth/messages'
+import type { Field, RegistrationInput } from '../../../src/auth/types'
 
 const valid: RegistrationInput = {
   name: 'Ada',

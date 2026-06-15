@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { SqliteAccountStore } from './sqliteAccountStore'
-import { AuthService } from './authService'
-import * as messages from './messages'
-import type { Account } from './types'
+import { SqliteAccountStore } from '../../../src/auth/sqliteAccountStore'
+import { AuthService } from '../../../src/auth/authService'
+import * as messages from '../../../src/auth/messages'
+import type { Account } from '../../../src/auth/types'
 
 function account(over: Partial<Account>): Account {
   return {

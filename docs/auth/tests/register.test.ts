@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { AuthService } from './authService'
-import { InMemoryAccountStore } from './accountStore'
-import * as messages from './messages'
-import type { RegistrationInput } from './types'
+import { AuthService } from '../../../src/auth/authService'
+import { InMemoryAccountStore } from '../../../src/auth/accountStore'
+import * as messages from '../../../src/auth/messages'
+import type { RegistrationInput } from '../../../src/auth/types'
 
 const valid: RegistrationInput = {
   name: 'Ada',

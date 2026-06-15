@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashPassword, verifyPassword } from './password'
+import { hashPassword, verifyPassword } from '../../../src/auth/password'
 
 describe('password hashing (Test plan 10)', () => {
   it('verifies a password against its own hash, and rejects a wrong one (item 10)', () => {

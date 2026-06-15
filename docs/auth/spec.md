@@ -21,12 +21,15 @@ src/auth/
   accountStore.ts           # InMemoryAccountStore implementing AccountStore (tests/demo)
   sqliteAccountStore.ts     # SqliteAccountStore implementing AccountStore (node:sqlite, production default)
   authService.ts            # AuthService.register / AuthService.login orchestration + createAuthService factory
-  password.test.ts          # Vitest — password hashing/verification (Test plan 9, 10)
-  validation.test.ts        # Vitest — field validation rules (Test plan 2, 3, 4)
-  register.test.ts          # Vitest — AuthService.register behavior (Test plan 1, 5, 6)
-  login.test.ts             # Vitest — AuthService.login behavior (Test plan 7, 8)
-  sqliteAccountStore.test.ts # Vitest — SQLite persistence/uniqueness + end-to-end (Test plan 11, 12, 13)
+
+docs/auth/tests/            # executable Vitest tests (import implementation from ../../../src/auth/*)
+  validation.test.ts        # field validation rules (Test plan 2, 3, 4)
+  register.test.ts          # AuthService.register behavior (Test plan 1, 5, 6)
+  login.test.ts             # AuthService.login behavior (Test plan 7, 8, 9)
+  password.test.ts          # password hashing/verification (Test plan 10)
+  sqliteAccountStore.test.ts # SQLite persistence/uniqueness + end-to-end (Test plan 11, 12, 13)
 ```
+Executable tests live under `docs/<entity>/tests/` (Vitest glob `docs/**/tests/**/*.test.ts`), not colocated in `src/`. They import the implementation via a relative path to `src/auth/`.
 
 ## 3. Types & data models
 Defined in `src/auth/types.ts` unless noted.
@@ -188,3 +191,4 @@ Each item becomes one or more `*.test.ts` cases the tester writes before impleme
 ## 9. Changelog
 - 2026-06-15 (`bf293d3`): initial spec derived from `prd.md` @ bf293d3 — 8-section auth logic (register/login over an injected `AccountStore`, zero-dep scrypt hashing) and a 10-item TDD test plan covering all 8 PRD acceptance criteria.
 - 2026-06-15 (no PRD change; architecture directive "use node sqlite"): persistence set to **SQLite** via `node:sqlite` (`DatabaseSync`). Added `SqliteAccountStore` + `createAuthService` factory; added the `accounts` schema with `UNIQUE(login_lower)`; added Test-plan items 11–13. `AccountStore` port and items 1–10 unchanged; `InMemoryAccountStore` retained for unit tests. `prd_synced` unchanged (`bf293d3`).
+- 2026-06-15 (tester; convention change): executable Vitest tests moved from `src/auth/*.test.ts` to `docs/auth/tests/*.test.ts`; Vitest `include` glob updated to `docs/**/tests/**/*.test.ts`. No behavior/test-plan change. `prd_synced` unchanged.
