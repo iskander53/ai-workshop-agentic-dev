@@ -20,7 +20,7 @@ test -d "$WT" || { echo "No worktree — run /architect $ENTITY first"; exit 1; 
 ```
 
 ## Workflow
-1. Read `$WT/docs/$ENTITY/spec.md` (file structure §2, types §3, classes §4, methods §5, dependencies §6) and the tester's `$WT/src/$ENTITY/*.test.ts` to see exactly what behavior is required.
+1. **Read all the inputs.** `$WT/docs/$ENTITY/spec.md` (file structure §2, types §3, classes §4, methods §5, dependencies §6) and the tester's `$WT/src/$ENTITY/*.test.ts` to see exactly what behavior is required. **Also check `$WT/docs/$ENTITY/handoff/`** — if it exists, read every file in it: these are **frontend/design instructions** (UI/component specs, layout, styling, interaction/UX behavior) that supplement the spec, and you must implement to satisfy them too. If the folder is absent or empty, this entity has no frontend handoff — skip it.
 2. See the current red:
    ```bash
    ( cd "$WT" && npx vitest run )

@@ -22,6 +22,7 @@ docs/
     prd.md           # INPUT  — product requirements (humans or /product own this)
     spec.md          # OUTPUT — technical spec (architect owns this)
     tests/           # test plan / fixtures the tester elaborates
+    handoff/         # OPTIONAL input — frontend/design instructions dev implements & qa verifies
 src/
   <entity>/          # implementation + colocated *.test.ts (Vitest)
 ```

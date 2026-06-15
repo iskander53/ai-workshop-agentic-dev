@@ -22,6 +22,7 @@ git -C ".worktrees/$ENTITY" status --porcelain         # must be clean (all work
 ```
 - **All tests must pass.** Any failure, uncommitted change, or merge conflict → **stop, do not merge.** Report exactly what failed and hand back to dev (failing tests) or tester/architect (missing coverage).
 - Open `.worktrees/$ENTITY/docs/$ENTITY/spec.md` and confirm every **Test plan (TDD)** item maps to a passing test. If an acceptance criterion has no test, that's a coverage gap → bounce back to the tester.
+- If `.worktrees/$ENTITY/docs/$ENTITY/handoff/` exists, read it and confirm the implementation honors those **frontend/design instructions** (layout, components, styling, interactions) in addition to the spec. Anything in the handoff that isn't met → bounce back to **dev**.
 
 ## 2. Merge the worktree into main
 Only once step 1 is fully green:
