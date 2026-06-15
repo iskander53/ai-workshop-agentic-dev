@@ -1,6 +1,6 @@
 ---
 entity: auth
-status: ready
+status: merged
 prd_synced: bf293d3fc03fddd3154246fce23838820c92531b # prd.md / handoff commit this spec was last derived from
 updated: 2026-06-15
 ---
