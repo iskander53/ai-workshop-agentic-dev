@@ -6,4 +6,4 @@ Registry of every entity and its current pipeline stage. The architect adds a ro
 
 | Entity | Description | Stage | Branch | Updated |
 |--------|-------------|-------|--------|---------|
-| _none yet_ | | | | |
+| auth | User registration & login (unique login, securely-hashed password) | spec | entity/auth | 2026-06-15 |
