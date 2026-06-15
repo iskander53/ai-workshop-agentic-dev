@@ -21,13 +21,13 @@ test -d "$WT" || { echo "No worktree — run /architect $ENTITY first"; exit 1; 
 
 ## Workflow
 1. Read `$WT/docs/$ENTITY/spec.md` — focus on **§7 Test plan**, plus the file structure (§2), classes (§4), and method signatures (§5) so your imports and calls match what the dev will build.
-2. For **each** Test-plan item, write one or more tests under `$WT/src/$ENTITY/` as `*.test.ts` (colocated next to where the code will live). Use real assertions against the spec'd public API:
+2. For **each** Test-plan item, write one or more tests under `$WT/docs/$ENTITY/tests/` as `*.test.ts` (**not** colocated in `src/` — see **Test location** below). Use real assertions against the spec'd public API:
    ```ts
    import { describe, it, expect } from 'vitest'
-   import { Thing } from './thing'   // path/signature per spec §2/§5 — may not exist yet
+   import { Thing } from '../../../src/<entity>/thing'   // relative path into src; signature per spec §2/§5 — may not exist yet
    ```
    Cover the happy paths AND the edge/error cases the plan lists. Name tests after the criterion so coverage is traceable.
-3. To get a **clean red** (assertion failures rather than just import crashes), you may scaffold **signature-only** stubs for the modules the tests import — exported classes/functions matching spec §5 whose bodies are `throw new Error('not implemented')`. Signatures only; **no logic** — that's the dev's job.
+3. To get a **clean red** (assertion failures rather than just import crashes), you may scaffold **signature-only** stubs in `$WT/src/$ENTITY/` for the modules the tests import — exported classes/functions matching spec §5 whose bodies are `throw new Error('not implemented')`. Signatures only; **no logic** — that's the dev's job. (Implementation modules live in `src/`; only the executable tests live under `docs/$ENTITY/tests/`.)
 4. Run the suite and confirm it FAILS for the right reasons (missing behavior, not typos in your tests):
    ```bash
    ( cd "$WT" && npx vitest run )
@@ -40,7 +40,11 @@ test -d "$WT" || { echo "No worktree — run /architect $ENTITY first"; exit 1; 
    ```
    Update the entity's row in `$WT/docs/INDEX.md` to stage **testing**.
 
+## Test location
+Executable Vitest tests live under **`$WT/docs/$ENTITY/tests/*.test.ts`** — never colocated in `src/`. The runner finds them via the Vitest `include` glob `docs/**/tests/**/*.test.ts` (in `vitest.config.ts`). Implementation — and any signature-only stubs you scaffold — stays in `src/$ENTITY/`; tests reach it with a relative path, e.g. `import { AuthService } from '../../../src/$ENTITY/authService'`. If the suite reports **"No test files found"**, confirm `vitest.config.ts` `include` contains `docs/**/tests/**/*.test.ts`.
+
 ## Rules
+- **Executable tests live in `docs/<entity>/tests/`, not in `src/`.** Only the signature-only stubs you scaffold go in `src/<entity>/`.
 - **Never** write real implementation logic — stubs are signatures + `not implemented` only.
 - **Never** weaken a test to make it pass; tests encode the spec.
 - The suite must end **red** with a failing test per acceptance criterion.
