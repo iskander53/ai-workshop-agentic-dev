@@ -3,3 +3,5 @@ node_modules
 .claude/settings.local.json
 verify/
 dist/
+.DS_Store
+.playwright-mcp/

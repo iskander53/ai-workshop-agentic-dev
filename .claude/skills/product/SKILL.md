@@ -23,11 +23,13 @@ You turn a freeform feature idea into a precise, **testable PRD** at `docs/<enti
 
 2. **Decide the entity slug yourself, then confirm.** Derive a short, stable slug from the feature ("user registration & login" → `auth`; "shopping cart" → `cart`). Make it broad enough to hold related behavior. **Confirm the slug with the user before writing** — it's permanent (folder, branch, and worktree all use it).
 
+   **A big feature may be several entities.** If the idea naturally splits into distinct, separately-testable units (e.g. `cart`, `orders`, `payments` for "checkout"), write one `prd.md` per entity and choose a **feature slug** for the group. They'll be built **together in one worktree** — hand them to the architect as `/architect <feature-slug> <entityA> <entityB> …`. Keep each entity cohesive: don't split what's really one unit, and don't lump unrelated behavior together.
+
 3. **Scope just enough.** Ask at most 2–3 questions, and only where the answer actually changes the PRD: who the actor is, what's explicitly out of scope, and the validation/edge rules that become acceptance criteria. If the idea is already clear, skip to writing and record your calls under Assumptions.
 
 4. **Write** `docs/<entity>/prd.md` using the template below. Every acceptance criterion must be **test-shaped** (a future test can assert it). Always fill **Out of scope** and **Assumptions**.
 
-5. **Handoff.** Report the path and a one-line summary. Next step: `/architect <entity>`.
+5. **Handoff.** Report the path(s) and a one-line summary. Next step: `/architect <entity>` — or, for a feature you split into several entities, `/architect <feature-slug> <entityA> <entityB> …` so they're built together in one worktree.
 
 ## Rules
 - **What & why, never how.** No modules/classes/methods, no library or algorithm choices, no DB/persistence tech. If you're specifying implementation, move it to Assumptions or leave it for the architect.
