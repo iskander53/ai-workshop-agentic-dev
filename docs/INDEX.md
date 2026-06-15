@@ -6,4 +6,4 @@ Registry of every entity and its current pipeline stage. The architect adds a ro
 
 | Entity | Description | Stage | Branch | Updated |
 |--------|-------------|-------|--------|---------|
-| _none yet_ | | | | |
+| auth | Registration & login — core + React UI + node:http API, end-to-end | building | entity/auth | 2026-06-15 |

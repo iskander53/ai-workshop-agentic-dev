@@ -3,13 +3,13 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "types": ["node"],
+    "types": [],
     "noEmit": true
   },
-  "include": ["src"],
-  "exclude": ["src/auth/web", "node_modules", "dist"]
+  "include": ["."]
 }
