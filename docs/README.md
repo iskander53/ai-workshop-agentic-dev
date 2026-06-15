@@ -2,10 +2,11 @@
 
 Each feature is an **entity** that flows through a fixed, test-driven pipeline:
 
-> **architect → tester → dev → qa**
+> **product → architect → tester → dev → qa**
 
 | Stage | Owner skill | Does |
 |-------|-------------|------|
+| product | `/product <idea>` | Turns a freeform idea into a testable `prd.md` (names the entity, searches for duplicates) |
 | architect | `/architect <entity>` | Reads `prd.md`, writes `spec.md`, creates the `entity/<entity>` worktree |
 | tester | `/tester <entity>` | Writes failing `*.test.ts` from the spec's Test plan (TDD) |
 | dev | `/dev <entity>` | Implements `src/<entity>/` until the tests pass |
@@ -18,7 +19,7 @@ docs/
   README.md          # this file
   INDEX.md           # registry of every entity + its current stage
   <entity>/
-    prd.md           # INPUT  — product requirements (humans own this)
+    prd.md           # INPUT  — product requirements (humans or /product own this)
     spec.md          # OUTPUT — technical spec (architect owns this)
     tests/           # test plan / fixtures the tester elaborates
 src/
